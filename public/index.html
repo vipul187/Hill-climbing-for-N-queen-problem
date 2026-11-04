@@ -1,1 +1,275 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N-Queen | Hill Climbing Algorithm</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #101827;
+    color: white;
+    text-align: center;
+    padding: 25px 15px;
+}
+
+.container {
+    max-width: 850px;
+    margin: auto;
+}
+
+h1 {
+    color: #60a5fa;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #b8c5d8;
+    margin-bottom: 25px;
+}
+
+.controls {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+select, input, button {
+    padding: 10px;
+    border-radius: 7px;
+    border: none;
+    font-size: 15px;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#board {
+    display: grid;
+    margin: 20px auto;
+    width: min(90vw, 480px);
+    aspect-ratio: 1;
+    border: 5px solid #64748b;
+}
+
+.cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(20px, 7vw, 45px);
+}
+
+.light {
+    background: #f1e5c9;
+    color: #111827;
+}
+
+.dark {
+    background: #64748b;
+    color: white;
+}
+
+#status {
+    margin: 18px;
+    color: #facc15;
+    font-weight: bold;
+}
+
+.info {
+    color: #cbd5e1;
+    margin: 10px;
+}
+
+footer {
+    color: #94a3b8;
+    margin-top: 30px;
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>♛ N-Queen Problem</h1>
+<p class="subtitle">
+Visualizing the Hill Climbing Algorithm
+</p>
+
+<div class="controls">
+    <label>
+        Number of Queens:
+        <select id="n">
+            <option>4</option>
+            <option>5</option>
+            <option>6</option>
+            <option selected>8</option>
+            <option>9</option>
+            <option>10</option>
+            <option>11</option>
+            <option>12</option>
+        </select>
+    </label>
+
+    <label>
+        Animation Speed:
+        <input id="speed" type="range"
+               min="80" max="1000" value="350">
+    </label>
+
+    <button id="run" onclick="runAnimation()">
+        Run Animation
+    </button>
+</div>
+
+<div id="status">Select N and click Run Animation.</div>
+
+<div id="board"></div>
+
+<div class="info" id="moves">Moves: 0</div>
+<div class="info" id="restarts">Restarts: 0</div>
+
+<footer>
+    Hill Climbing with Random Restarts | N-Queen Problem
+</footer>
+
+</div>
+
+<script>
+const boardElement = document.getElementById("board");
+const statusElement = document.getElementById("status");
+const runButton = document.getElementById("run");
+
+function drawBoard(board) {
+    const n = board.length;
+
+    boardElement.style.gridTemplateColumns =
+        `repeat(${n}, 1fr)`;
+
+    boardElement.innerHTML = "";
+
+    for (let row = 0; row < n; row++) {
+        for (let col = 0; col < n; col++) {
+            const cell = document.createElement("div");
+
+            cell.className = "cell " +
+                ((row + col) % 2 === 0 ? "light" : "dark");
+
+            if (board[col] === row) {
+                cell.textContent = "♛";
+            }
+
+            boardElement.appendChild(cell);
+        }
+    }
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runAnimation() {
+    const n = Number(document.getElementById("n").value);
+    const speed = Number(document.getElementById("speed").value);
+
+    runButton.disabled = true;
+    statusElement.textContent = "Calculating solution...";
+
+    document.getElementById("moves").textContent = "Moves: 0";
+    document.getElementById("restarts").textContent = "Restarts: 0";
+
+    try {
+        const response = await fetch("/api", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ n: n })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || "API request failed");
+        }
+
+        const frames = result.frames || [];
+
+        if (frames.length === 0) {
+            throw new Error("No animation frames received.");
+        }
+
+        // Sample frames to keep the animation manageable.
+        const maxFrames = 250;
+        const sampled = [];
+
+        if (frames.length <= maxFrames) {
+            sampled.push(...frames);
+        } else {
+            for (let i = 0; i < maxFrames; i++) {
+                const index = Math.round(
+                    i * (frames.length - 1) / (maxFrames - 1)
+                );
+                sampled.push(frames[index]);
+            }
+        }
+
+        statusElement.textContent = "Hill climbing in progress...";
+
+        for (const frame of sampled) {
+            drawBoard(frame);
+            await delay(1050 - speed);
+        }
+
+        document.getElementById("moves").textContent =
+            "Moves: " + result.moves;
+
+        document.getElementById("restarts").textContent =
+            "Restarts: " + result.restarts;
+
+        if (result.solved) {
+            statusElement.textContent =
+                "✓ Solution Found! All queens are safe.";
+        } else {
+            statusElement.textContent =
+                "No solution found in this run. Try again!";
+        }
+
+    } catch (error) {
+        statusElement.textContent = "Error: " + error.message;
+    } finally {
+        runButton.disabled = false;
+    }
+}
+
+drawBoard([0, 2, 0, 2, 0, 2, 0, 2]);
+</script>
+</body>
+</html>
+
